@@ -1,0 +1,16 @@
+
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grades & Reviews — Unity Roguelike</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head><body>
+<div class="container">
+  <aside><div class="brand"><div class="logo">RL</div><div><div style="font-weight:800">Grades & Reviews</div><div class="notice">Student view (read-only)</div></div></div>
+  <div class="card"><a class="btn ghost" href="index.html">← Back to Tasks</a></div></aside>
+  <main><h1>My Grades</h1><div id="grades"></div></main>
+</div>
+<script type="module">
+import {getProgress, el} from './js/app.js';
+function render(){ const p = getProgress(); const wrap=document.getElementById('grades'); wrap.innerHTML=''; const entries=Object.entries(p.grades||{}); if(!entries.length){ wrap.innerHTML='<div class="notice">No grades yet.</div>'; return; } const table=el('<table class="table"><thead><tr><th>Week</th><th>Task</th><th>Score</th><th>Feedback</th><th>Date</th></tr></thead><tbody></tbody></table>'); const tb=table.querySelector('tbody'); entries.forEach(([id,g])=>{ tb.appendChild(el(`<tr><td>${g.week}</td><td>${g.task}</td><td>${g.score}</td><td>${g.feedback}</td><td>${new Date(g.date).toLocaleString()}</td></tr>`)); }); wrap.appendChild(table); } render();
+</script>
+</body></html>

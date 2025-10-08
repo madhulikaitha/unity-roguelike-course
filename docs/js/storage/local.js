@@ -1,0 +1,1 @@
+export class LocalStore{constructor(key){this.key=key;}get(){try{return JSON.parse(localStorage.getItem(this.key));}catch(e){return null}}set(v){localStorage.setItem(this.key,JSON.stringify(v));}clear(){localStorage.removeItem(this.key);}}

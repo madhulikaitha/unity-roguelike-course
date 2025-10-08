@@ -1,0 +1,28 @@
+
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instructor Review — Unity Roguelike</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head><body>
+<div class="container">
+  <aside><div class="brand"><div class="logo">RL</div><div><div style="font-weight:800">Instructor Review</div><div class="notice">Private — grade & write feedback</div></div></div><div class="card"><a class="btn ghost" href="admin.html">← Admin</a></div></aside>
+  <main><h1>Enter Grade / Review</h1>
+    <div class="card">
+      <div class="grid">
+        <div style="grid-column:span 3"><label>Grade ID</label><input id="gid" placeholder="e.g., w1-t2-2025-10-02"></div>
+        <div style="grid-column:span 3"><label>Week</label><input id="week" value="w1"></div>
+        <div style="grid-column:span 6"><label>Task</label><input id="task" placeholder="w1-t2 Turn System"></div>
+        <div style="grid-column:span 3"><label>Score</label><input id="score" placeholder="e.g., 9/10"></div>
+        <div style="grid-column:span 9"><label>Feedback</label><textarea id="feedback" rows="3"></textarea></div>
+        <div style="grid-column:span 12;display:flex;gap:10px"><button id="save" class="btn dark">Save (local)</button><button id="clear" class="btn ghost">Clear All Grades</button></div>
+      </div>
+      <p class="small">Demo writes to student's local storage if run on their device. For shared grades, we can sync to Google Sheets—easy to add next.</p>
+    </div>
+  </main>
+</div>
+<script type="module">
+import {getProgress, setProgress} from './js/app.js';
+document.getElementById('save').addEventListener('click', ()=>{ const p=getProgress(); p.grades=p.grades||{}; const gid=document.getElementById('gid').value || ('g-'+Date.now()); p.grades[gid]={{week:document.getElementById('week').value, task:document.getElementById('task').value, score:document.getElementById('score').value, feedback:document.getElementById('feedback').value, date:Date.now()}}; setProgress(p); alert('Saved (local demo).'); });
+document.getElementById('clear').addEventListener('click', ()=>{ if(confirm('Clear all grades?')){{ const p=getProgress(); p.grades={{}}; setProgress(p); alert('Cleared.'); }} });
+</script>
+</body></html>

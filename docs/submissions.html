@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Submit Work — Unity Roguelike</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+  <style>
+    /* Subtle helper text rendered inside the select via the first disabled option */
+    select:invalid { color: #a8b9a3; }
+    option[disabled][hidden] { display:none; }
+    /* Small helper rows under labels */
+    .hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <aside>
+      <div class="brand">
+        <div class="logo">RL</div>
+        <div>
+          <div style="font-weight:800">Submit Work</div>
+          <div class="notice">Uploads go to Google Drive</div>
+        </div>
+      </div>
+      <div class="card">
+        <a class="btn ghost" href="index.html">← Back to Tasks</a>
+      </div>
+    </aside>
+
+    <main>
+      <h1>Project Submission</h1>
+      <div class="card">
+        <div class="grid">
+          <!-- Week + Task -->
+          <div style="grid-column:span 4">
+            <label>Week</label>
+            <select id="week" required>
+              <!-- instruction placeholder lives INSIDE the button -->
+              <option value="" disabled selected hidden>Select Week (then choose Task)</option>
+            </select>
+            <div class="hint">Pick the correct week for your task.</div>
+          </div>
+
+          <div style="grid-column:span 8">
+            <label>Task</label>
+            <select id="task" required>
+              <option value="" disabled selected hidden>Select Task for your submission</option>
+            </select>
+            <div class="hint">Choose the exact task you’re submitting. We’ll show the solution after upload.</div>
+          </div>
+
+          <div style="grid-column:span 12">
+            <label>Notes</label>
+            <textarea id="notes" rows="3" placeholder="Anything you want the reviewer to know…"></textarea>
+          </div>
+
+          <div style="grid-column:span 12">
+            <label>Files (images .png/.jpg; videos .mp4/.mov)</label>
+            <input id="files" type="file" multiple accept="image/*,video/*" />
+          </div>
+
+          <!-- Hidden storage config (reveal with ?admin=1) -->
+          <div style="grid-column:span 12; display:none" class="card" id="storageCard">
+            <h3>Storage</h3>
+            <div class="grid">
+              <div style="grid-column:span 4">
+                <label>Mode</label>
+                <select id="mode">
+                  <option value="local">Local (IndexedDB)</option>
+                  <option value="gdrive" selected>Google Drive (Apps Script)</option>
+                </select>
+              </div>
+              <div style="grid-column:span 4">
+                <label>Apps Script URL</label>
+                <input id="endpoint" value="https://script.google.com/macros/s/AKfycbytHku4oBSEolmxpsbI4z635ITvFe9uTJWf7NoUAKSujtyihck_v9jqX3Rt4UFplaTABw/exec" />
+              </div>
+              <div style="grid-column:span 4">
+                <label>Drive Folder ID</label>
+                <input id="folder" value="1cn66XZFyYYF2TTly8J_EWCnZDafDmwDd" />
+              </div>
+              <div style="grid-column:span 12">
+                <label>Shared Secret (optional)</label>
+                <input id="token" value="i-love-madhu" />
+              </div>
+            </div>
+          </div>
+
+          <div style="grid-column:span 12;display:flex;gap:10px;flex-wrap:wrap">
+            <button id="save" class="btn dark" title="Uploads your files to the course Google Drive folder.">Upload to Google Drive</button>
+            <button id="fallback" class="btn ghost" title="Saves files in this browser only, as a backup.">Save Locally (backup)</button>
+          </div>
+
+          <!-- Solution appears after successful upload -->
+          <div id="solutionBox" class="card" style="grid-column:span 12; display:none; margin-top:6px"></div>
+        </div>
+        <p class="small">Uploads use the pre-configured Google Drive endpoint. Use the local backup only if you’re offline.</p>
+        <div id="loadStatus" class="small" style="color:var(--muted)"></div>
+      </div>
+
+      <h2>My Local Backups</h2>
+      <div id="list"></div>
+    </main>
+  </div>
+
+  <script type="module">
+    import SOLUTIONS from './data/solutions.js';
+    import { IDBStore } from './js/storage/indexeddb.js';
+    import { GDriveUploader } from './js/storage/gdrive.js';
+    import { el } from './js/app.js';
+
+    // --- Admin reveal for storage config ---
+    (function(){
+      const p = new URLSearchParams(location.search);
+      if (p.get('admin') === '1') {
+        const card = document.getElementById('storageCard');
+        if (card) card.style.display = '';
+      }
+    })();
+
+    const weekSel = document.getElementById('week');
+    const taskSel = document.getElementById('task');
+    const loadStatus = document.getElementById('loadStatus');
+
+    // --- Safe loader for weeks.js, with fallback if it fails ---
+    async function loadWeeks() {
+      try {
+        // dynamic import so we can catch failures cleanly
+        const mod = await import('./data/weeks.js');
+        const DATA = mod.default || mod;
+        if (!DATA?.weeks?.length) throw new Error('No weeks in weeks.js');
+        return DATA;
+      } catch (err) {
+        // Fallback: Week 1 only, so dropdowns still work even if weeks.js fails to load
+        console.warn('Falling back to built-in weeks:', err);
+        loadStatus.textContent = 'Loaded with fallback data (could not read data/weeks.js).';
+        return {
+          weeks: [{
+            id: 'w1',
+            title: 'Core Roguelike Sprint',
+            tasks: [
+              { id:'w1-t1', title:'Set up Grid & Player Movement' },
+              { id:'w1-t2', title:'Turn System & Simple Enemy' },
+              { id:'w1-t3', title:'Pickups, Health & UI' },
+              { id:'w1-t4', title:'Dungeon Room Variations (Tiny RNG)' },
+              { id:'w1-t5', title:'Vibe Coding (15–25 min)' },
+            ]
+          }]
+        };
+      }
+    }
+
+    function rebuildWeeks(DATA){
+      // Keep the placeholder at the top
+      weekSel.innerHTML = `<option value="" disabled hidden>Select Week (then choose Task)</option>` +
+        DATA.weeks.map((w,i)=>`<option value="${w.id}">Week ${i+1} — ${w.title}</option>`).join('');
+      // Ensure placeholder remains selected initially
+      weekSel.value = "";
+      taskSel.innerHTML = `<option value="" disabled hidden>Select Task for your submission</option>`;
+      taskSel.value = "";
+    }
+
+    function rebuildTasks(DATA){
+      const w = DATA.weeks.find(x => x.id === weekSel.value);
+      taskSel.innerHTML = `<option value="" disabled hidden>Select Task for your submission</option>` +
+        (w?.tasks||[]).map(t => `<option value="${t.id}">${t.id} — ${t.title}</option>`).join('');
+      taskSel.value = "";
+    }
+
+    // --- Local backups (IndexedDB) ---
+    const db = new IDBStore('RLDB','submissions','all');
+    async function getAll(){ return await db.get() || []; }
+    async function setAll(v){ await db.set(v); }
+    function renderList(items){
+      const wrap = document.getElementById('list'); wrap.innerHTML='';
+      if(!items.length){ wrap.innerHTML = '<div class="notice">No local backups yet.</div>'; return; }
+      items.forEach((it,ix)=>{
+        const node = el(`<div class="card">
+          <div class="kv"><div><strong>${it.week} • ${it.task}</strong></div><div>${new Date(it.date).toLocaleString()}</div></div>
+          <div class="small">Notes: ${it.notes||''}</div>
+          <div class="gallery" id="g-${ix}"></div>
+        </div>`);
+        wrap.appendChild(node);
+        const g = node.querySelector('#g-'+ix);
+        (it.files||[]).forEach(f=>{
+          const url = f.url;
+          const thumb = el(`<div class="thumb"></div>`);
+          if((f.type||'').startsWith('image/')){ thumb.appendChild(el(`<img src="${url}" alt="">`)); }
+          else { thumb.appendChild(el(`<video src="${url}" controls></video>`)); }
+          const dl = el(`<a href="${url}" download class="small" style="position:absolute;right:8px;bottom:6px">download</a>`);
+          thumb.appendChild(dl);
+          g.appendChild(thumb);
+        });
+      });
+    }
+
+    // --- Google Drive Upload ---
+    async function uploadToDrive(){
+      const files = Array.from(document.getElementById('files').files||[]);
+      if(!weekSel.value){ alert('Please select a Week.'); return; }
+      if(!taskSel.value){ alert('Please select a Task.'); return; }
+      if(!files.length){ alert('Choose files first.'); return; }
+
+      const up = new GDriveUploader({
+        endpoint: document.getElementById('endpoint').value,
+        folder:   document.getElementById('folder').value,
+        token:    document.getElementById('token').value
+      });
+
+      const result = await up.upload({
+        week: weekSel.value,
+        task: taskSel.value,
+        notes: document.getElementById('notes').value,
+        files
+      });
+
+      // Show solution immediately on success
+      showSolution(taskSel.value);
+      alert('Uploaded to Google Drive. The solution is shown below.');
+      console.log(result);
+    }
+
+    // --- Local backup / fallback ---
+    async function saveLocal(){
+      if(!weekSel.value){ alert('Please select a Week.'); return; }
+      if(!taskSel.value){ alert('Please select a Task.'); return; }
+
+      const files = Array.from(document.getElementById('files').files||[]);
+      const urls = await Promise.all(files.map(async f=>({ name:f.name, type:f.type, url:URL.createObjectURL(f) })));
+      const item = {
+        date: Date.now(),
+        week: weekSel.value,
+        task: taskSel.value,
+        notes: document.getElementById('notes').value,
+        files: urls
+      };
+      const all = await getAll(); all.unshift(item); await setAll(all); renderList(all);
+      showSolution(taskSel.value);
+      alert('Saved locally (backup). Solution shown below.');
+    }
+
+    // --- Show solution for a task ---
+    function showSolution(taskId){
+      const box = document.getElementById('solutionBox');
+      const sol = SOLUTIONS[taskId];
+      if (sol) {
+        const items = (sol.items||[]).map(i => `<li>${i}</li>`).join('');
+        const links = (sol.links||[]).map(l => `<li><a target="_blank" href="${l.url}">${l.label}</a></li>`).join('');
+        box.innerHTML = `
+          <h3>${sol.title}</h3>
+          ${items ? `<ul>${items}</ul>` : ''}
+          ${links ? `<div><strong>Helpful links:</strong><ul>${links}</ul></div>` : ''}
+          <p class="small">Tip: Compare your approach to this checklist. Keep your unique style!</p>
+        `;
+        box.style.display = '';
+      } else {
+        box.innerHTML = `<h3>Solution</h3><p>No solution doc for <code>${taskId}</code> yet.</p>`;
+        box.style.display = '';
+      }
+    }
+
+    // --- Wire buttons & boot ---
+    document.getElementById('save').addEventListener('click', uploadToDrive);
+    document.getElementById('fallback').addEventListener('click', saveLocal);
+
+    (async ()=>{
+      const DATA = await loadWeeks();
+      rebuildWeeks(DATA);
+      weekSel.addEventListener('change', ()=>rebuildTasks(DATA));
+      // Optional: auto-select the first week to speed things up
+      const firstWeek = DATA.weeks?.[0]?.id;
+      if(firstWeek){ weekSel.value = firstWeek; rebuildTasks(DATA); }
+      renderList(await getAll());
+      loadStatus.textContent ||= 'Ready.';
+    })();
+  </script>
+</body>
+</html>

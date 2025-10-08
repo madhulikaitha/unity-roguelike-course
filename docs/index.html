@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Unity Roguelike — Student Portal</title>
+  <style>
+    :root{
+      --primary-1:#587B7F; /* Myrtle (Primary) */
+      --primary-2:#1E2019; /* Eerie (Primary) */
+      --primary-3:#8DAB7F; /* Olivine (Primary) */
+      --accent-1:#394032;  /* Black Olive (Accent) */
+      --accent-2:#CFEE9E;  /* Mindaro (Accent) */
+      --text:#F6FFF0; --muted:#cfe3c3; --card:#233026;
+      --line: rgba(255,255,255,.08); --shadow:0 10px 30px rgba(0,0,0,.25);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      background:linear-gradient(120deg,var(--primary-2),var(--accent-1));color:var(--text)}
+    a{color:var(--accent-2);text-decoration:none}
+    .container{display:grid;grid-template-columns:320px 1fr;min-height:100vh}
+    @media(max-width:960px){.container{grid-template-columns:1fr}}
+    /* Sidebar */
+    aside{background:linear-gradient(180deg,var(--accent-1),var(--primary-1));padding:20px;box-shadow:var(--shadow)}
+    .brand{display:flex;gap:12px;align-items:center}
+    .brand .logo{width:40px;height:40px;border-radius:12px;background:var(--accent-2);color:#123;display:grid;place-items:center;font-weight:900;box-shadow:var(--shadow)}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);margin-top:16px}
+    .bar{height:10px;background:#1b231b;border-radius:999px;overflow:hidden}
+    .fill{height:100%;background:linear-gradient(90deg,var(--accent-2),var(--primary-3));width:0%}
+    .badge{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);padding:8px 10px;border-radius:999px;margin:6px 6px 0 0;background:#2c3a2c}
+    .btn{background:var(--accent-2);color:#132;border:0;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);display:inline-block}
+    .btn.ghost{background:transparent;border:1px solid var(--accent-2);color:var(--accent-2)}
+    .btn.dark{background:var(--primary-3);color:#132}
+    .sidebar-actions{display:flex;flex-direction:column}
+    .sidebar-actions .btn + .btn{margin-top:16px;} /* extra spacing between buttons */
+    main{padding:24px 28px 48px}
+    .notice{color:var(--muted);font-size:13px}
+    /* Main */
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
+    .task{grid-column:span 6}
+    @media(max-width:1000px){.task{grid-column:span 12}}
+    .task h3{margin:0 0 8px}
+    .task ul{padding-left:0;margin:0}
+    .task li{list-style:none;margin:8px 0;display:flex;gap:10px;align-items:flex-start}
+    input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent-2)}
+    .res{border-top:1px dashed var(--line);padding-top:12px;margin-top:12px;display:grid;gap:10px}
+
+    /* NEW: Row behavior for links inside resource area */
+    .task .res .links{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px 14px;
+      align-items:center;
+    }
+    /* Put long video button on its own line under the short link, without pushing article */
+    .task .res .links .btn.ghost{
+      flex-basis:100%;
+      margin-top:6px;
+      margin-left:0;
+      width:max-content;
+    }
+
+    .summary{background:#1d271d;padding:10px;border-radius:10px;border:1px solid var(--line);color:var(--muted)}
+    footer{margin-top:28px;border-top:1px solid var(--line);padding-top:18px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .swatch{display:inline-flex;align-items:center;gap:8px;background:#223122;padding:6px 10px;border-radius:10px;border:1px solid var(--line)}
+    .dot{width:18px;height:18px;border-radius:6px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <aside>
+      <div class="brand">
+        <div class="logo">RL</div>
+        <div>
+          <div style="font-weight:800;font-size:18px">Roguelike Course Hub</div>
+          <div class="notice">Student View</div>
+        </div>
+      </div>
+
+      <div class="card" id="xpCard">
+        <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center">
+          <div><strong>Level <span id="level">1</span></strong><br><span class="notice">Earn XP via micro-tasks.</span></div>
+          <div style="text-align:right"><strong><span id="xp">0</span> XP</strong></div>
+        </div>
+        <div class="bar" style="margin-top:10px"><div class="fill" id="xpFill"></div></div>
+        <div style="margin-top:8px;display:flex;justify-content:space-between">
+          <span class="notice"><span id="xpToNext">100</span> XP to next level</span>
+          <span class="notice">Streak: <span id="streak">0</span> 🔥</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <strong>Badges</strong>
+        <div id="badgesWrap" style="margin-top:6px"></div>
+      </div>
+
+      <div class="card sidebar-actions">
+        <a class="btn dark" href="submissions.html">Submit Work</a>
+        <a class="btn ghost" href="grades.html">Grades & Reviews</a>
+      </div>
+    </aside>
+
+    <main>
+      <header style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+        <div style="flex:0 0 280px;height:160px;border:1px solid var(--line);border-radius:20px;background:
+          radial-gradient(80px 80px at 70% 30%, var(--accent-2) 0%, transparent 60%),
+          radial-gradient(120px 120px at 20% 80%, var(--primary-3) 0%, transparent 60%),
+          linear-gradient(140deg, transparent 40%, rgba(205,255,180,.25) 41%, transparent 60%);"></div>
+        <div>
+          <h1 style="margin:0 0 6px">Week <span id="weekLabel">1</span> — Core Roguelike Sprint</h1>
+          <p class="notice" style="max-width:60ch">Each task has a short video, an optional deep-dive, and one article with a crisp summary.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <select id="weekSelect" class="week-select"></select>
+          </div>
+        </div>
+      </header>
+
+      <section class="grid" id="tasks"></section>
+
+      <footer>
+        <div>
+          <span class="swatch"><span class="dot" style="background:#587B7F"></span>#587B7F</span>
+          <span class="swatch"><span class="dot" style="background:#1E2019"></span>#1E2019</span>
+          <span class="swatch"><span class="dot" style="background:#8DAB7F"></span>#8DAB7F</span>
+          <span class="swatch"><span class="dot" style="background:#394032"></span>#394032</span>
+          <span class="swatch"><span class="dot" style="background:#CFEE9E"></span>#CFEE9E</span>
+        </div>
+        <span class="notice">Vector-style UI • GitHub Pages friendly</span>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    // ----- Week Data (embedded so tasks always render) -----
+    const DATA = {
+      weeks: [{
+        id: "w1",
+        title: "Core Roguelike Sprint",
+        tasks: [
+          {
+            id:"w1-t1", title:"Set up Grid & Player Movement", xp:40,
+            micro:[
+              "Create new URP 3D/2D project",
+              "Add 10x10 grid or tilemap",
+              "Move on grid with WASD/Arrows (no diagonal)",
+              "Clamp to bounds & smooth camera"
+            ],
+            resources:{
+              short:{label:"Grid-Based Movement (short)", url:"https://www.youtube.com/watch?v=mbzXIOKZurA"},
+              long:{label:"Series: Grid Movement (Part 1)", url:"https://www.youtube.com/watch?v=4JaHSLA2CKs"},
+              article:{
+                label:"Deterministic movement",
+                url:"https://discussions.unity.com/t/how-to-handle-grid-movement-tilemaps/",
+                summary:"Keep movement deterministic; prefer fixed-step updates. Tilemaps simplify snap-to-grid and bounds checks. Compare Translate vs Rigidbody so turns aren’t frame-rate dependent."
+              }
+            }
+          },
+          {
+            id:"w1-t2", title:"Turn System & Simple Enemy", xp:40,
+            micro:[
+              "Make input consume one turn",
+              "Enemy steps toward player each turn",
+              "Order: player → enemies",
+              "Lose if enemy reaches player"
+            ],
+            resources:{
+              short:{label:"Turn-Based System (short)", url:"https://www.youtube.com/watch?v=0QU0yV0CYT4"},
+              long:{label:"Enemy AI via State Machine (long)", url:"https://www.youtube.com/watch?v=eR-AGr5nKEU"},
+              article:{
+                label:"Turn queues & fairness",
+                url:"https://gamedevelopment.tutsplus.com/turn-based-game-loop-design--cms-25662t",
+                summary:"Use a simple turn queue: collect input, resolve player, then enemies. Decouple input from resolution and process one turn at a time to avoid frame-rate issues and race conditions."
+              }
+            }
+          },
+          {
+            id:"w1-t3", title:"Pickups, Health & UI", xp:30,
+            micro:[
+              "Health hearts/bar",
+              "Food heals; key unlocks door",
+              "HUD with hearts & key count",
+              "Juice: pop SFX + small screen bump"
+            ],
+            resources:{
+              short:{label:"Hearts/Health UI (short)", url:"https://www.youtube.com/watch?v=5NViMw-ALAo"},
+              long:{label:"Brackeys: Health Bar (long)", url:"https://www.youtube.com/watch?v=BLfNP4Sc_iA"},
+              article:{
+                label:"Unity UI basics",
+                url:"https://learn.unity.com/tutorial/creating-ui-in-unity",
+                summary:"Use C# events to keep the HUD reactive (health, pickups). Prioritize instant feedback—sound, brief flash, and +1 text—to reinforce actions and maintain focus."
+              }
+            }
+          },
+          {
+            id:"w1-t4", title:"Dungeon Room Variations (Tiny RNG)", xp:30,
+            micro:[
+              "Create 3 room prefabs (start/loot/enemy)",
+              "Pick 1 on start",
+              "Gate with key objective",
+              "Restart run on death"
+            ],
+            resources:{
+              short:{label:"Dungeon Gen in 3 Minutes", url:"https://www.youtube.com/watch?v=_9vxOPmj7vc"},
+              long:{label:"Procedural Dungeons Intro", url:"https://www.youtube.com/watch?v=-QOCX6SVFsk"},
+              article:{
+                label:"Fair randomness",
+                url:"https://www.redblobgames.com/articles/probability/damage-rolls.html",
+                summary:"Constrain randomness and seed the run for reproducibility. Use consistent signals so players learn expectations—small, fair variation over wild swings."
+              }
+            }
+          },
+          {
+            id:"w1-t5", title:"Vibe Coding (15–25 min)", xp:20,
+            micro:[
+              "Set timer; record one build clip",
+              "Add one delight (glow/sfx/sparkles)",
+              "Commit with message 'vibe-xp'",
+              "Share a 10-sec clip or GIF"
+            ],
+            resources:{
+              short:{label:"Quick Glow (short)", url:"https://www.youtube.com/watch?v=bkPe1hxOmbI"},
+              long:{label:"Post-Processing Overview", url:"https://www.youtube.com/watch?v=9tjYz6Ab0oc"},
+              article:{
+                label:"Reduce flashing effects",
+                url:"https://gameaccessibilityguidelines.com/allow-players-to-reduce-flashing-effects/",
+                summary:"Add juice with care: keep bloom/intensity comfortable and provide a toggle to reduce flashing—better accessibility and fewer distractions."
+              }
+            }
+          }
+        ]
+      }]
+    };
+
+    // ----- Progress & UI helpers (local-only) -----
+    const progressKey='rl_progress_v1';
+    const getProgress=()=>{try{return JSON.parse(localStorage.getItem(progressKey))||{xp:0,completed:{},streak:0,lastDay:null,badges:[]}}catch{return{xp:0,completed:{},streak:0,lastDay:null,badges:[]}}};
+    const setProgress=(p)=>localStorage.setItem(progressKey,JSON.stringify(p));
+    const addXP=(n)=>{const p=getProgress();p.xp+=n;const t=new Date().toISOString().slice(0,10);if(p.lastDay===t){}else{if(!p.lastDay){p.streak=1}else{const prev=new Date(p.lastDay);const next=new Date(prev);next.setDate(prev.getDate()+1);p.streak=(t===next.toISOString().slice(0,10))?p.streak+1:1}p.lastDay=t}unlockBadges(p);setProgress(p)}
+    const levelFromXP=(x)=>Math.floor(x/100)+1;
+    const xpIntoLevel=(x)=>x%100;
+    const unlockBadges=(p)=>{const add=i=>{if(!p.badges.includes(i))p.badges.push(i)};if(p.streak>=3)add('streak3');if(p.streak>=7)add('streak7');if(p.xp>=200)add('xp200');if(p.xp>=500)add('xp500')}
+    const el=(html)=>{const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild};
+
+    // ----- Render -----
+    const weekSelect=document.getElementById('weekSelect');
+    const weekLabel=document.getElementById('weekLabel');
+    const tasksWrap=document.getElementById('tasks');
+
+    function renderWeeksOptions(){
+      weekSelect.innerHTML = DATA.weeks.map((w,i)=>`<option value="${i}">Week ${i+1} — ${w.title}</option>`).join('');
+    }
+    function currentWeekIndex(){return parseInt(weekSelect.value||0)}
+    function renderWeek(){
+      const w = DATA.weeks[currentWeekIndex()];
+      weekLabel.textContent = (currentWeekIndex()+1);
+      tasksWrap.innerHTML = '';
+      w.tasks.forEach(t=> tasksWrap.appendChild(renderTaskCard(w.id,t)));
+    }
+    function renderTaskCard(weekId, task){
+      const p=getProgress(); const completed=p.completed[task.id]||{};
+      const list=task.micro.map((text,idx)=>{const id=`${task.id}-item-${idx}`;const checked=!!completed[id];return `<li><input type="checkbox" id="${id}" ${checked?'checked':''}/> <label for="${id}">${text}</label></li>`}).join('')
+      const r=task.resources; const s=r.short||{}; const l=r.long||{}; const a=r.article||{};
+      const node=el(`
+        <article class="card task" id="${task.id}">
+          <h3>${task.title}</h3>
+          <ul>${list}</ul>
+          <div class="res">
+            <div class="links">
+              ${s.url?`<a target="_blank" href="${s.url}">▶ ${s.label||'Short video'}</a>`:''}
+              ${l.url?`<a class="btn ghost" target="_blank" href="${l.url}">📺 ${l.label||'Optional long'}</a>`:''}
+              ${a.url?`<a target="_blank" href="${a.url}">📖 ${a.label||'Article'}</a>`:''}
+            </div>
+            <details ${a.summary?'':'open'}>
+              <summary>Article Summary</summary>
+              <div class="summary">${a.summary||'Summary coming soon.'}</div>
+            </details>
+          </div>
+        </article>`);
+      node.querySelectorAll('input[type=checkbox]').forEach(box=>{
+        box.addEventListener('change',()=>{
+          const pr=getProgress();
+          pr.completed[task.id]=pr.completed[task.id]||{};
+          pr.completed[task.id][box.id]=box.checked;
+          setProgress(pr);
+          if(box.checked) addXP(10);
+          renderSidebar();
+        });
+      });
+      return node;
+    }
+    function renderSidebar(){
+      const p=getProgress();
+      document.getElementById('xp').textContent=p.xp;
+      document.getElementById('level').textContent=levelFromXP(p.xp);
+      const into=xpIntoLevel(p.xp);
+      document.getElementById('xpToNext').textContent=100-into;
+      document.getElementById('xpFill').style.width=into+'%';
+      document.getElementById('streak').textContent=p.streak||0;
+      const wrap=document.getElementById('badgesWrap'); wrap.innerHTML='';
+      const labels={streak3:'3-Day Streak',streak7:'7-Day Streak',xp200:'200 XP',xp500:'500 XP'};
+      (p.badges||[]).forEach(id=> wrap.appendChild(el(`<span class="badge">${labels[id]||id}</span>`)));
+    }
+
+    renderWeeksOptions(); renderWeek(); renderSidebar();
+    weekSelect.addEventListener('change', renderWeek);
+  </script>
+</body>
+</html>
