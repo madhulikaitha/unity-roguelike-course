@@ -45,14 +45,14 @@
     input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent-2)}
     .res{border-top:1px dashed var(--line);padding-top:12px;margin-top:12px;display:grid;gap:10px}
 
-    /* NEW: Row behavior for links inside resource area */
+    /* Link row inside each task’s resource area */
     .task .res .links{
       display:flex;
       flex-wrap:wrap;
       gap:10px 14px;
       align-items:center;
     }
-    /* Put long video button on its own line under the short link, without pushing article */
+    /* Long video on its own line under the short link (article stays aligned) */
     .task .res .links .btn.ghost{
       flex-basis:100%;
       margin-top:6px;
@@ -235,7 +235,29 @@
     const progressKey='rl_progress_v1';
     const getProgress=()=>{try{return JSON.parse(localStorage.getItem(progressKey))||{xp:0,completed:{},streak:0,lastDay:null,badges:[]}}catch{return{xp:0,completed:{},streak:0,lastDay:null,badges:[]}}};
     const setProgress=(p)=>localStorage.setItem(progressKey,JSON.stringify(p));
-    const addXP=(n)=>{const p=getProgress();p.xp+=n;const t=new Date().toISOString().slice(0,10);if(p.lastDay===t){}else{if(!p.lastDay){p.streak=1}else{const prev=new Date(p.lastDay);const next=new Date(prev);next.setDate(prev.getDate()+1);p.streak=(t===next.toISOString().slice(0,10))?p.streak+1:1}p.lastDay=t}unlockBadges(p);setProgress(p)}
+
+    const addXP=(n)=>{
+      const p=getProgress();
+      p.xp += n;
+      const t=new Date().toISOString().slice(0,10);
+      if(p.lastDay===t){} else {
+        if(!p.lastDay){ p.streak=1; }
+        else {
+          const prev=new Date(p.lastDay); const next=new Date(prev); next.setDate(prev.getDate()+1);
+          p.streak = (t===next.toISOString().slice(0,10)) ? p.streak+1 : 1;
+        }
+        p.lastDay=t;
+      }
+      unlockBadges(p); setProgress(p);
+    };
+
+    /* NEW: subtract XP on uncheck (never below 0) */
+    const removeXP=(n)=>{
+      const p=getProgress();
+      p.xp = Math.max(0, (p.xp||0) - n);
+      setProgress(p);
+    };
+
     const levelFromXP=(x)=>Math.floor(x/100)+1;
     const xpIntoLevel=(x)=>x%100;
     const unlockBadges=(p)=>{const add=i=>{if(!p.badges.includes(i))p.badges.push(i)};if(p.streak>=3)add('streak3');if(p.streak>=7)add('streak7');if(p.xp>=200)add('xp200');if(p.xp>=500)add('xp500')}
@@ -280,9 +302,11 @@
         box.addEventListener('change',()=>{
           const pr=getProgress();
           pr.completed[task.id]=pr.completed[task.id]||{};
-          pr.completed[task.id][box.id]=box.checked;
+          const nowChecked = box.checked;
+          pr.completed[task.id][box.id]=nowChecked;
           setProgress(pr);
-          if(box.checked) addXP(10);
+
+          if (nowChecked) { addXP(10); } else { removeXP(10); }
           renderSidebar();
         });
       });
